@@ -36,6 +36,9 @@ h2{font-size:26px;margin:34px 0 6px;padding-top:14px;border-top:3px dashed var(-
 .btn.sec{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.4;cursor:default}
 .qb.good{border-left:6px solid var(--ok);padding-left:14px}.qb.bad{border-left:6px solid var(--no);padding-left:14px}
 .bd{margin-left:10px;font-weight:800}.bd.ok{color:var(--ok)}.bd.no{color:var(--no)}.rev .opt,.rev .pick{pointer-events:none}
+.opt.key,.pick.key{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok) inset}.pick.key{color:var(--ok)}
+.opt.wrong{border-color:var(--no)}.opt.wrong b,.pick.wrong{background:var(--no);border-color:var(--no);color:#fff}
+.tag{display:block;color:var(--ok);font-weight:800;font-style:normal;font-size:17px}
 .res{text-align:center;padding-top:20px}.big{font-size:72px;font-weight:800;margin:6px 0;line-height:1.1}.stars{font-size:46px;letter-spacing:6px}
 </style></head><body><div id="app"></div>
 <script>
@@ -44,18 +47,19 @@ const Q=[];D.forEach(s=>s.q.forEach(q=>Q.push({...q,s:s.id,k:K[s.id][q.n]})));
 let A,rev=false;
 const done=(q,a)=>q.y=='m'?a.length>0:q.y=='t'?a.every(x=>x!==null):a!==null;
 const right=(q,a)=>q.y=='c'?a===q.k:(q.y=='m'?[...a].sort():a).join()==q.k.join();
-function qhtml(g){const q=Q[g],a=A[g];
+function qhtml(g){const q=Q[g],a=A[g],sk=rev&&!right(q,a);
 const bd=rev?(right(q,a)?'<span class="bd ok">✅ Benar</span>':'<span class="bd no">❌ Belum tepat</span>'):'';
 let h=`<div class=qn>Soal ${g+1} dari ${Q.length}${bd}</div><div class=q>${q.t}</div>`;
 if(q.y=='m')h+=`<p class=mut>Pilih semua jawaban yang benar.</p>`;
-if(q.y=='t')h+=`<div class=tf><div class=th><span></span><b>${q.h[0]}</b><b>${q.h[1]}</b></div>`+q.o.map((o,r)=>`<div class=tr><span>${o}</span>${[0,1].map(c=>`<button class="pick ${a[r]===c?'on':''}" onclick="tf(${g},${r},${c})">${a[r]===c?'✔':''}</button>`).join('')}</div>`).join('')+`</div>`;
-else h+=q.o.map((o,r)=>{const on=q.y=='m'?a.includes(r):a===r;return `<button class="opt ${on?'on':''}" onclick="pick(${g},${r})"><b>${q.y=='m'?(on?'✔':''):L[r]}</b><span>${o}</span></button>`}).join('');
+if(sk)h+=`<p class=mut>Jawaban yang benar ditandai hijau ✓ — ayo pelajari ya!</p>`;
+if(q.y=='t')h+=`<div class=tf><div class=th><span></span><b>${q.h[0]}</b><b>${q.h[1]}</b></div>`+q.o.map((o,r)=>`<div class=tr><span>${o}</span>${[0,1].map(c=>{const ky=sk&&q.k[r]===c,wr=sk&&a[r]===c&&!ky;return `<button class="pick ${a[r]===c?'on':''} ${ky?'key':''} ${wr?'wrong':''}" onclick="tf(${g},${r},${c})">${ky?'✓':wr?'✕':a[r]===c?'✔':''}</button>`}).join('')}</div>`).join('')+`</div>`;
+else h+=q.o.map((o,r)=>{const on=q.y=='m'?a.includes(r):a===r,ky=sk&&(q.y=='c'?r===q.k:q.k.includes(r)),wr=sk&&on&&!ky;return `<button class="opt ${on?'on':''} ${ky?'key':''} ${wr?'wrong':''}" onclick="pick(${g},${r})"><b>${q.y=='m'?(on?'✔':''):L[r]}</b><span>${o}${ky?'<em class=tag>✓ Jawaban yang benar</em>':''}</span></button>`}).join('');
 return h}
 function summary(){
 const n=Q.length,ok=Q.filter((q,g)=>right(q,A[g])).length,p=Math.round(ok/n*100);
 const st=p>=90?3:p>=70?2:p>=50?1:0,msg=p>=90?'Luar biasa! Kamu hebat sekali! 🎉':p>=70?'Bagus sekali! Terus semangat! 👏':p>=50?'Lumayan! Ayo belajar lagi supaya lebih baik 💪':'Jangan menyerah! Coba lagi ya, kamu pasti bisa 🌟';
 const rows=D.map(s=>{const c=Q.filter((q,g)=>q.s==s.id&&right(q,A[g])).length;return `<div class=tr style="grid-template-columns:1fr auto"><span>Bab ${s.id}: ${s.t}</span><b>${c} / ${s.q.length}</b></div>`}).join('');
-return `<div class=res><p class=mut>Nilai Akhir</p><div class=stars>${'⭐'.repeat(st)||'🌱'}</div><div class=big>${p}</div><p>Benar <b>${ok}</b> dari <b>${n}</b> soal</p><p>${msg}</p><div class=tf style="text-align:left;margin-top:18px">${rows}</div><p class=mut>Gulir ke bawah untuk melihat hasil setiap soal ⬇</p></div>`}
+return `<div class=res><p class=mut>Nilai Akhir</p><div class=stars>${'⭐'.repeat(st)||'🌱'}</div><div class=big>${p}</div><p>Benar <b>${ok}</b> dari <b>${n}</b> soal</p><p>${msg}</p><div class=tf style="text-align:left;margin-top:18px">${rows}</div><p class=mut>Gulir ke bawah untuk melihat hasil setiap soal dan jawaban yang benar ⬇</p></div>`}
 function draw(){
 $.className=rev?'rev':'';
 let h=rev?summary():`<h1>📚 Latihan Bahasa Indonesia</h1><p class=mut>Kelas 4 SD · Jawab semua soal dari atas sampai bawah. Nilai akan muncul setelah semua soal dijawab.</p><div class=sticky><div class=row><span id=cnt></span><span id=pc></span></div><div class=bar><i id=fill></i></div></div>`;

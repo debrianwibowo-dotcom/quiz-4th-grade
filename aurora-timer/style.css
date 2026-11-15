@@ -21,13 +21,13 @@
   /* Wheel row height scales with screen height so short phones still fit. */
   --item-h: clamp(46px, 8.4vh, 76px);
   /* Big digits: fill the width, but two lines must fit the height. */
-  --digit-size: min(74vw, 42vh);
+  --digit-size: min(70vw, 42vh);
 }
 
 @supports (height: 1svh) {
   :root {
     --item-h: clamp(46px, 8.4svh, 76px);
-    --digit-size: min(74vw, 42svh);
+    --digit-size: min(70vw, 42svh);
   }
 }
 
@@ -207,7 +207,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: calc(var(--item-h) * 0.74);
-  font-weight: 300;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   transform-origin: center;
@@ -314,7 +314,7 @@ button {
   display: block;
   font-size: var(--digit-size);
   line-height: 0.86;
-  font-weight: 300;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   text-shadow: 0 0 40px rgba(0, 0, 0, 0.55);

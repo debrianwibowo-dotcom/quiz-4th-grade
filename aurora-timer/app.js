@@ -113,12 +113,12 @@
     clearTimeout(finishTimer);
     state.phase = 'done';
     afterPhaseChange();
-    playChime();
-    try { if (navigator.vibrate) navigator.vibrate([250, 180, 250, 180, 600]); } catch (e) { /* ignore */ }
+    playAlarm();
   }
 
   function reset() {
     clearTimeout(finishTimer);
+    stopAlarm();
     closeConfirm();
     state.phase = 'setup';
     state.endAt = 0;
@@ -166,7 +166,7 @@
 
     var hint = '';
     if (state.phase === 'paused') hint = 'PAUSED · tap to resume · hold to stop';
-    else if (state.phase === 'done') hint = 'DONE · tap to dismiss';
+    else if (state.phase === 'done') hint = "TIME'S UP · tap to stop";
     else if (state.phase === 'running' && Date.now() < startHintUntil) hint = 'tap to pause · hold to stop';
     if (hint) els.hint.textContent = hint;
     els.hint.classList.toggle('is-visible', !!hint);
@@ -505,10 +505,7 @@
       cancelPress();
       press.timer = setTimeout(function () {
         press.timer = 0;
-        if (state.phase === 'running' || state.phase === 'paused') {
-          try { if (navigator.vibrate) navigator.vibrate(30); } catch (err) { /* ignore */ }
-          openConfirm();
-        }
+        if (state.phase === 'running' || state.phase === 'paused') openConfirm();
       }, LONG_PRESS_MS);
     });
     t.addEventListener('pointermove', function (e) {
@@ -601,10 +598,20 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Gentle end chime (Web Audio, synthesized — no audio files)
+  // End-of-timer alarm (Web Audio, synthesized — no audio files)
+  //
+  // Phone-style "beep-beep-beep-beep … pause", looping until dismissed, getting
+  // louder over the first seconds. One pattern is rendered into an AudioBuffer
+  // and looped on the audio thread, so it keeps ringing without JS timers.
   // ---------------------------------------------------------------------------
 
+  var ALARM_MAX_SECONDS = 300;     // auto-silence if nobody dismisses it
+  var ALARM_RAMP_SECONDS = 10;     // ascending volume, like a phone alarm
+  var ALARM_START_VOLUME = 0.3;
+
   var audioCtx = null;
+  var alarmBuffer = null;
+  var alarm = null;                // { src, gain } while ringing
 
   function unlockAudio() {
     try {
@@ -621,35 +628,63 @@
     } catch (e) { /* ignore */ }
   }
 
-  function playChime() {
-    if (!audioCtx) return;
+  /** One 1.2 s alarm cycle: four 100 ms beeps at ~1 kHz, then silence. */
+  function buildAlarmBuffer(ctx) {
+    var sr = ctx.sampleRate;
+    var CYCLE = 1.2, BEEPS = 4, BEEP = 0.1, GAP = 0.06, FREQ = 1000;
+    var ATTACK = 0.004, RELEASE = 0.012;
+    var buf = ctx.createBuffer(1, Math.round(sr * CYCLE), sr);
+    var data = buf.getChannelData(0);
+    for (var b = 0; b < BEEPS; b++) {
+      var s0 = Math.round(b * (BEEP + GAP) * sr);
+      var n = Math.round(BEEP * sr);
+      for (var i = 0; i < n; i++) {
+        var t = i / sr;
+        var env = Math.min(1, t / ATTACK, (BEEP - t) / RELEASE); // click-free edges
+        var ph = 2 * Math.PI * FREQ * t;
+        // Fundamental + a little 3rd/5th harmonic: the bright "digital alarm" tone.
+        data[s0 + i] = env * 0.55 * (Math.sin(ph) + 0.3 * Math.sin(3 * ph) + 0.15 * Math.sin(5 * ph));
+      }
+    }
+    return buf;
+  }
+
+  function playAlarm() {
+    stopAlarm();
+    if (!audioCtx) return; // audio is unlocked by tapping START
     try {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      var master = audioCtx.createGain();
-      master.gain.value = 0.5;
-      master.connect(audioCtx.destination);
+      if (!alarmBuffer) alarmBuffer = buildAlarmBuffer(audioCtx);
       var t0 = audioCtx.currentTime + 0.05;
-      // E5, G#5, B5, E6 — a soft major arpeggio.
-      [[659.25, 0], [830.61, 0.18], [987.77, 0.36], [1318.51, 0.62]].forEach(function (n) {
-        bell(master, n[0], t0 + n[1]);
-      });
+      var gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(ALARM_START_VOLUME, t0);
+      gain.gain.linearRampToValueAtTime(1, t0 + ALARM_RAMP_SECONDS);
+      gain.connect(audioCtx.destination);
+      var src = audioCtx.createBufferSource();
+      src.buffer = alarmBuffer;
+      src.loop = true;
+      src.connect(gain);
+      src.onended = function () {
+        if (alarm && alarm.src === src) alarm = null;
+      };
+      src.start(t0);
+      src.stop(t0 + ALARM_MAX_SECONDS);
+      alarm = { src: src, gain: gain };
     } catch (e) { /* ignore */ }
   }
 
-  function bell(out, freq, t) {
-    [[1, 0.28], [2.01, 0.06]].forEach(function (partial) {
-      var osc = audioCtx.createOscillator();
-      var g = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq * partial[0];
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(partial[1], t + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
-      osc.connect(g);
-      g.connect(out);
-      osc.start(t);
-      osc.stop(t + 1.9);
-    });
+  function stopAlarm() {
+    if (!alarm) return;
+    var a = alarm;
+    alarm = null;
+    try {
+      // Quick fade instead of a hard cut (avoids a click).
+      var t = audioCtx.currentTime;
+      a.gain.gain.cancelScheduledValues(t);
+      a.gain.gain.setValueAtTime(a.gain.gain.value, t);
+      a.gain.gain.linearRampToValueAtTime(0, t + 0.05);
+      a.src.stop(t + 0.06);
+    } catch (e) { /* already stopped */ }
   }
 
   // ---------------------------------------------------------------------------

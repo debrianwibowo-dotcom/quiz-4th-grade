@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="A dark focus countdown timer. An aurora appears in the last 15 seconds of every minute.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Aurora Focus</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2305070F'/%3E%3Cpath d='M10 40c6-10 12-2 18-9s12-4 16-8 8-2 10-4v10c-4 3-6 1-10 5s-10 1-16 8-12-2-18 8z' fill='%233CF2A0' opacity='.85'/%3E%3Ccircle cx='32' cy='32' r='16' fill='none' stroke='%23fff' stroke-width='2.5'/%3E%3Cpath d='M32 22v10l7 4' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="aurora-timer/style.css">
+</head>
+<body data-phase="setup">
+  <canvas id="aurora" class="aurora" aria-hidden="true"></canvas>
+
+  <!-- Setup: choose minutes -->
+  <section id="setup" class="screen setup" aria-label="Set timer">
+    <header class="setup__header">
+      <h1 class="setup__title">Aurora Focus</h1>
+    </header>
+
+    <div class="setup__picker">
+      <div class="picker">
+        <div class="picker__band" aria-hidden="true"></div>
+        <div id="wheel" class="wheel" role="listbox" tabindex="0" aria-label="Minutes"></div>
+        <span class="picker__unit" aria-hidden="true">min</span>
+      </div>
+    </div>
+
+    <div id="presets" class="presets" role="group" aria-label="Presets"></div>
+    <button id="start" class="start" type="button">Start</button>
+    <p id="note" class="note" hidden></p>
+  </section>
+
+  <!-- Running / paused / done -->
+  <section id="timer" class="screen timer" aria-label="Timer" hidden>
+    <div id="digits" class="digits" role="timer">
+      <span id="mm" class="digits__mm">25</span>
+      <span id="ss" class="digits__ss">00</span>
+    </div>
+    <p id="hint" class="hint" aria-live="polite"></p>
+  </section>
+
+  <!-- Stop confirmation -->
+  <div id="confirm" class="backdrop" hidden>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <h2 id="confirm-title" class="dialog__title">Stop timer?</h2>
+      <p id="confirm-text" class="dialog__text">Your current focus session will end.</p>
+      <div class="dialog__actions">
+        <button id="confirm-keep" class="btn btn--ghost" type="button">Keep going</button>
+        <button id="confirm-stop" class="btn btn--danger" type="button">Stop</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="aurora-timer/time-math.js"></script>
+  <script src="aurora-timer/aurora.js"></script>
+  <script src="aurora-timer/app.js"></script>
+</body>
+</html>
